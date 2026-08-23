@@ -14,6 +14,7 @@ works.
 | AUR package | `tmog-bin` |
 | Upstream | <https://tmog.org/> |
 | Source | `TMOG-Task-Manager-Linux-x86_64.tar.gz` (official Linux tarball) |
+| Version feed | <https://tmog.org/version.txt> |
 | Architectures | `x86_64` — upstream ships no other Linux build |
 
 ## Installing
@@ -34,17 +35,25 @@ so nothing is vendored: `qt6-base`, `qt6-multimedia`, `qt6-svg` and
 `systemd-libs` come from the repositories. Install `qt6-wayland` for a native
 Wayland session.
 
-## The unversioned-URL caveat
+## The mutable-source caveat
 
-Upstream publishes exactly one Linux download URL, and it always points at the
+Upstream publishes one Linux download path per format, and it always serves the
 newest build:
 
 ```
-https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz
+https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz?v=0.1.1-free
 ```
 
-There is no per-release path, no version manifest, and no GitHub release to pin
-against. That has one consequence worth knowing before you file a bug:
+The `?v=` query is what the tmog.org download buttons append at click time. It
+is a CDN cache key, **not** a version pin — every value returns the current
+bytes, as upstream's own `site.js` explains. This package uses it anyway,
+because it means a version bump misses the edge cache and is answered by the
+origin rather than by a stale object.
+
+The version itself comes from <https://tmog.org/version.txt>, a plain-text feed
+the website uses to label its own download links. There is still no per-release
+download path and no GitHub release to pin against, which has one consequence
+worth knowing before you file a bug:
 
 > **When upstream ships a new build, `makepkg` fails with a sha256 mismatch
 > until this package catches up.** The URL now serves different bytes than the
@@ -62,9 +71,13 @@ trade-off.
 
 ## How the automation works
 
-[`scripts/update.sh`](scripts/update.sh) fetches the upstream tarball, reads the
-version out of its top-level directory name (`TaskManagerOG-<version>-linux-x86_64`),
-and compares both the version and the checksum against the `PKGBUILD`:
+[`scripts/update.sh`](scripts/update.sh) reads `version.txt`, downloads the
+tarball through the same cache key a browser would use, and cross-checks the
+advertised version against the tarball's own top-level directory name
+(`TaskManagerOG-<version>-linux-x86_64`). A disagreement means the website is
+staged ahead of its artifacts, and the script fails rather than publishing a
+mislabelled package. Otherwise it compares version and checksum against the
+`PKGBUILD`:
 
 * **new version** → `pkgver` updated, `pkgrel` reset to `1`
 * **same version, different bytes** (an upstream re-roll) → `pkgrel` incremented

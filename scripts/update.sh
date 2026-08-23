@@ -2,9 +2,11 @@
 #
 # Sync PKGBUILD and .SRCINFO with the current upstream TMOG Linux tarball.
 #
-# Upstream publishes one unversioned "latest" URL, so the only way to learn the
-# version is to fetch the tarball and read the version out of its top-level
-# directory name. Two outcomes are treated differently:
+# Upstream publishes the version at /version.txt and serves the tarball from a
+# mutable "latest" path, cache-keyed by a ?v=<version>-free query the website
+# appends at click time. This script reads version.txt, downloads the tarball
+# through the same cache key a user would, and cross-checks the two. Two
+# outcomes are treated differently:
 #
 #   * version changed          -> pkgver=<new>, pkgrel=1
 #   * version same, bytes new  -> pkgver kept, pkgrel incremented (upstream
@@ -15,7 +17,11 @@
 
 set -euo pipefail
 
-readonly UPSTREAM_URL='https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz'
+readonly VERSION_URL='https://tmog.org/version.txt'
+# %s is the upstream version. The query is a CDN cache key, not a version pin:
+# every value returns the current bytes. Using it means a version bump misses
+# the edge cache and reaches the origin instead of a stale object.
+readonly ARCHIVE_URL_FORMAT='https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz?v=%s-free'
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -78,29 +84,49 @@ parse_args() {
   done
 }
 
-# fetch_upstream downloads the tarball and echoes "<version> <sha256>".
-fetch_upstream() {
-  local archive="$work_dir/upstream.tar.gz"
+# fetch_upstream_version echoes the version upstream currently advertises.
+fetch_upstream_version() {
+  local version
+  version="$(curl --fail --silent --show-error --location --retry 3 --retry-delay 5 \
+    --header 'Cache-Control: no-cache' "$VERSION_URL")" \
+    || die "could not read $VERSION_URL"
+
+  version="${version//[$'\r\n\t ']/}"
+  # The same shape the website itself requires before it trusts the value.
+  [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || die "unexpected content at $VERSION_URL: '$version'"
+
+  printf '%s' "$version"
+}
+
+# fetch_upstream_archive downloads the tarball for $1 and echoes its sha256.
+fetch_upstream_archive() {
+  local version="$1"
+  local archive="$work_dir/upstream.tar.gz" url
+  printf -v url "$ARCHIVE_URL_FORMAT" "$version"
 
   curl --fail --silent --show-error --location --retry 3 --retry-delay 5 \
-    --output "$archive" "$UPSTREAM_URL" \
-    || die "download failed: $UPSTREAM_URL"
+    --output "$archive" "$url" \
+    || die "download failed: $url"
 
   local top_level
   top_level="$(bsdtar -tf "$archive" | head -n 1 | cut -d/ -f1)" \
     || die 'could not list the upstream tarball'
   [[ -n $top_level ]] || die 'upstream tarball has no top-level directory'
 
-  local version
-  version="$(grep -oE '[0-9]+(\.[0-9]+)+' <<<"$top_level" | head -n 1)" \
+  local tarball_version
+  tarball_version="$(grep -oE '[0-9]+(\.[0-9]+)+' <<<"$top_level" | head -n 1)" \
     || true
-  [[ -n $version ]] \
+  [[ -n $tarball_version ]] \
     || die "could not parse a version from the top-level directory '$top_level'"
 
-  local checksum
-  checksum="$(sha256sum "$archive" | cut -d' ' -f1)"
+  # A staged website can advertise a release before its artifacts land. Refuse
+  # to label a tarball with a version it does not contain; the next scheduled
+  # run picks it up once the deploy settles.
+  [[ $tarball_version == "$version" ]] \
+    || die "version.txt reports $version but the tarball contains $tarball_version; upstream deploy looks incomplete"
 
-  printf '%s %s' "$version" "$checksum"
+  sha256sum "$archive" | cut -d' ' -f1
 }
 
 # rewrite_pkgbuild updates pkgver, pkgrel and sha256sums in place.
@@ -141,9 +167,9 @@ main() {
   current_pkgrel="$(read_pkgbuild_var pkgrel)"
   current_checksum="$(read_pkgbuild_var sha256sums)"
 
-  local upstream version checksum
-  upstream="$(fetch_upstream)"
-  read -r version checksum <<<"$upstream"
+  local version checksum
+  version="$(fetch_upstream_version)"
+  checksum="$(fetch_upstream_archive "$version")"
 
   info "packaged: $current_version-$current_pkgrel ($current_checksum)"
   info "upstream: $version ($checksum)"

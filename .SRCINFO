@@ -16,7 +16,7 @@ pkgbase = tmog-bin
 	optdepends = qt6-wayland: native Wayland session support
 	options = !strip
 	options = !debug
-	source = tmog-bin-0.1.1.tar.gz::https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz
+	source = tmog-bin-0.1.1.tar.gz::https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz?v=0.1.1-free
 	sha256sums = 4d319d3d27f513e83801daeec8eb64cb78ddec1f6483bbe90d57d11e607af39d
 
 pkgname = tmog-bin
