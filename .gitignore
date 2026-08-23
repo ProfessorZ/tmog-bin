@@ -1,0 +1,14 @@
+# makepkg working directories and outputs
+/src/
+/pkg/
+*.pkg.tar.*
+*.log
+
+# Downloaded upstream sources are never committed: the TMOG beta license does
+# not permit redistribution, so this repository ships packaging files only.
+*.tar.gz
+*.AppImage
+*.deb
+
+# Stray MCP server logs that predate this repository
+/logs/

@@ -1,0 +1,21 @@
+pkgbase = tmog-bin
+	pkgdesc = Task Manager TMOG, a native Qt 6 system monitor and task manager by Dave Plummer (binary release)
+	pkgver = 0.1.1
+	pkgrel = 1
+	url = https://tmog.org/
+	arch = x86_64
+	license = LicenseRef-proprietary
+	depends = glibc
+	depends = libgcc
+	depends = libstdc++
+	depends = qt6-base
+	depends = qt6-multimedia
+	depends = qt6-svg
+	depends = systemd-libs
+	optdepends = qt6-wayland: native Wayland session support
+	options = !strip
+	options = !debug
+	source = tmog-bin-0.1.1.tar.gz::https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.tar.gz
+	sha256sums = 4d319d3d27f513e83801daeec8eb64cb78ddec1f6483bbe90d57d11e607af39d
+
+pkgname = tmog-bin
