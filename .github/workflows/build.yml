@@ -1,0 +1,49 @@
+name: build
+
+# Builds the package on every change so a broken PKGBUILD is caught before it
+# reaches the AUR. The built package is intentionally never uploaded as an
+# artifact or release asset: the TMOG beta license forbids redistribution, and
+# this repository distributes packaging files only.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: makepkg + namcap
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm --needed git namcap
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create build user
+        run: |
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Verify .SRCINFO is in sync with PKGBUILD
+        run: |
+          sudo -u builder makepkg --printsrcinfo >/tmp/.SRCINFO.generated
+          diff -u .SRCINFO /tmp/.SRCINFO.generated
+
+      - name: Lint PKGBUILD
+        run: namcap PKGBUILD
+
+      - name: Build package
+        run: sudo -u builder makepkg --syncdeps --noconfirm --cleanbuild
+
+      - name: Lint built package
+        run: namcap ./*.pkg.tar.zst
+
+      - name: Verify the package installs
+        run: pacman --upgrade --noconfirm ./*.pkg.tar.zst
