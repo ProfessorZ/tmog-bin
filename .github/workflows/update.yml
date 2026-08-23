@@ -33,7 +33,7 @@ jobs:
         run: pacman -Syu --noconfirm --needed git namcap openssh
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create build user
         run: |
