@@ -72,9 +72,13 @@ jobs:
           git commit -m "chore: update to ${VERSION}-${PKGREL}" -m "${REASON}"
           git push
 
+      # The AUR steps below are deliberately not gated on `changed`. If an
+      # earlier run committed a new version here but failed to reach the AUR,
+      # update.sh sees the repository as up to date on the next run and would
+      # never retry. Comparing against a fresh AUR clone every time instead
+      # makes the mirror self-healing, and creates the package on first push.
       - name: Detect AUR credentials
         id: aur
-        if: steps.update.outputs.changed == 'true'
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
@@ -105,10 +109,14 @@ jobs:
           cd /tmp/aur
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if git diff --quiet; then
+          # --cached, because on a brand-new (empty) AUR repository the files
+          # are untracked and a plain `git diff` would report no change.
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
             echo 'AUR already up to date'
             exit 0
           fi
-          git add PKGBUILD .SRCINFO
           git commit -m "Update to ${VERSION}-${PKGREL}"
-          git push
+          # Explicit refspec: a clone of an empty AUR repository has no upstream
+          # branch configured, and the AUR's branch is always master.
+          git push origin HEAD:master

@@ -95,8 +95,10 @@ automation works without it.
 
 1. Create an AUR account and add an SSH public key to it.
 2. Add the matching private key as the `AUR_SSH_PRIVATE_KEY` repository secret.
-3. Push the first version manually — the AUR repository has to exist before the
-   workflow can clone it:
+3. Run the workflow manually (`workflow_dispatch`). The AUR push compares
+   against a fresh clone rather than against this repository's own state, so it
+   performs the initial import itself and retries on its own if a later push
+   fails. To do the first import by hand instead:
 
    ```bash
    git clone ssh://aur@aur.archlinux.org/tmog-bin.git aur && cp PKGBUILD .SRCINFO aur/ && cd aur && git add -A && git commit -m 'Initial import' && git push
