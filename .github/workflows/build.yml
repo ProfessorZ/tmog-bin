@@ -28,6 +28,8 @@ jobs:
       - name: Create build user
         run: |
           useradd --create-home builder
+          # makepkg --syncdeps shells out to `sudo pacman -S` as the build user.
+          printf 'builder ALL=(ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 

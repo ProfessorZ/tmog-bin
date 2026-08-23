@@ -56,7 +56,11 @@ emit_output() {
 # read_pkgbuild_var echoes the value of a top-level PKGBUILD variable.
 read_pkgbuild_var() {
   local name="$1"
-  ( set -euo pipefail
+  # Unset variables are tolerated here on purpose: sourcing the PKGBUILD
+  # outside makepkg leaves makepkg's own variables (CARCH and friends)
+  # undefined, and the source URL interpolates CARCH.
+  ( set -eo pipefail
+    local CARCH; CARCH="$(uname -m)"
     # shellcheck source=/dev/null
     source "$PKGBUILD"
     local -n value="$name"

@@ -6,6 +6,7 @@ pkgbase = tmog-bin
 	arch = x86_64
 	license = LicenseRef-proprietary
 	depends = glibc
+	depends = hicolor-icon-theme
 	depends = libgcc
 	depends = libstdc++
 	depends = qt6-base
