@@ -17,6 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
+    # Container jobs default to `sh -e`, which only tolerates bash syntax here
+    # because Arch's /bin/sh is bash. Ask for bash explicitly.
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Install dependencies
         run: |
